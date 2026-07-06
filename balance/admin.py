@@ -1,3 +1,7 @@
 from django.contrib import admin
 
-# Register your models here.
+from .models import AntifreezeBalance, CleaningFluidBalance
+
+
+admin.site.register(CleaningFluidBalance)
+admin.site.register(AntifreezeBalance)
