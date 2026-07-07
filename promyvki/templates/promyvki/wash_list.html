@@ -1,52 +1,89 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <title>Журнал промывок</title>
-</head>
-<body>
-    <h1>Журнал промывок газотурбинного оборудования</h1>
+{% extends "promyvki/base.html" %}
 
-    {% if washes %}
-        <table border="1" cellpadding="8">
-            <thead>
-                <tr>
-                    <th>Дата</th>
-                    <th>Станция</th>
-                    <th>КТС до промывки</th>
-                    <th>КТС после промывки</th>
-                    <th>Промывочная жидкость</th>
-                    <th>Количество жидкости, л</th>
-                    <th>Антифриз</th>
-                    <th>Количество антифриза, л</th>
-                </tr>
-            </thead>
+{% block title %}
+    Журнал промывок ГТУ
+{% endblock %}
 
-            <tbody>
-                {% for wash in washes %}
-                    <tr>
-                        <td>{{ wash.date|date:"d.m.Y" }}</td>
-                        <td>{{ wash.station }}</td>
-                        <td>{{ wash.kts_before }}</td>
-                        <td>{{ wash.kts_after }}</td>
-                        <td>{{ wash.cleaning_fluid }}</td>
-                        <td>{{ wash.cleaning_fluid_amount }}</td>
+{% block content %}
+    <section class="page-heading">
+        <h1>Журнал промывок газотурбинного оборудования</h1>
+        <p>
+            Учёт выполненных промывок, значений КТС и расхода материалов.
+        </p>
+    </section>
 
-                        <td>
-                            {% if wash.antifreeze %}
-                                {{ wash.antifreeze }}
-                            {% else %}
-                                —
-                            {% endif %}
-                        </td>
+    <section class="card">
+        <div class="card-header">
+            <strong>Все записи</strong>
 
-                        <td>{{ wash.antifreeze_amount }}</td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    {% else %}
-        <p>Записей о промывках пока нет.</p>
-    {% endif %}
-</body>
-</html>
+            <span class="records-count">
+                Всего записей: {{ washes|length }}
+            </span>
+        </div>
+
+        {% if washes %}
+            <div class="table-wrapper">
+                <table class="washes-table">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Компрессорная станция</th>
+                            <th>КТС до</th>
+                            <th>КТС после</th>
+                            <th>Промывочная жидкость</th>
+                            <th>Расход смеси, л</th>
+                            <th>Антифриз</th>
+                            <th>Расход антифриза, л</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for wash in washes %}
+                            <tr>
+                                <td>{{ wash.date|date:"d.m.Y" }}</td>
+                                <td>{{ wash.station }}</td>
+                                <td class="number-cell">
+                                    {{ wash.kts_before|floatformat:2 }}
+                                </td>
+                                <td class="number-cell">
+                                    {{ wash.kts_after|floatformat:2 }}
+                                </td>
+                                <td>{{ wash.cleaning_fluid }}</td>
+                                <td class="number-cell">
+                                    {{ wash.cleaning_fluid_amount|floatformat:2 }}
+                                </td>
+
+                                <td>
+                                    {% if wash.antifreeze %}
+                                        {{ wash.antifreeze }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+
+                                <td class="number-cell">
+                                    {% if wash.antifreeze_amount %}
+                                        {{ wash.antifreeze_amount|floatformat:2 }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <h2>Промывок пока нет</h2>
+                <p>
+                    Добавь первую запись через административную панель.
+                </p>
+
+                <a class="admin-link" href="/admin/">
+                    Открыть админ-панель
+                </a>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}

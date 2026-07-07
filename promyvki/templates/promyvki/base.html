@@ -1,0 +1,40 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>
+        {% block title %}Журнал промывок ГТУ{% endblock %}
+    </title>
+
+    <link rel="stylesheet" href="{% static 'promyvki/styles.css' %}">
+</head>
+<body>
+    <header class="site-header">
+        <div class="container header-content">
+            <a class="logo" href="{% url 'wash_list' %}">
+                Журнал промывок ГТУ
+            </a>
+
+            <nav class="navigation">
+                <a href="{% url 'wash_list' %}">Журнал</a>
+                <a href="/admin/">Админка</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container page-content">
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <footer class="site-footer">
+        <div class="container">
+            Система учёта промывок газотурбинного оборудования
+        </div>
+    </footer>
+</body>
+</html>
