@@ -1,89 +1,179 @@
-{% extends "promyvki/base.html" %}
+{% load static %}
 
-{% block title %}
-    Журнал промывок ГТУ
-{% endblock %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-{% block content %}
-    <section class="page-heading">
-        <h1>Журнал промывок газотурбинного оборудования</h1>
-        <p>
-            Учёт выполненных промывок, значений КТС и расхода материалов.
-        </p>
-    </section>
+    <title>Журнал промывок</title>
 
-    <section class="card">
-        <div class="card-header">
-            <strong>Все записи</strong>
+    <link
+        rel="stylesheet"
+        href="{% static 'promyvki/styles.css' %}"
+    >
+</head>
 
-            <span class="records-count">
-                Всего записей: {{ washes|length }}
-            </span>
+<body>
+
+<header class="page-header">
+    <div class="header-content">
+
+        <div class="brand-text">
+            <h1 class="page-title">
+                Журнал промывок
+            </h1>
+
+            <p class="page-subtitle">
+                Учёт проведённых промывок оборудования на компрессорных
+                станциях
+            </p>
         </div>
 
-        {% if washes %}
-            <div class="table-wrapper">
-                <table class="washes-table">
-                    <thead>
-                        <tr>
-                            <th>Дата</th>
-                            <th>Компрессорная станция</th>
-                            <th>КТС до</th>
-                            <th>КТС после</th>
-                            <th>Промывочная жидкость</th>
-                            <th>Расход смеси, л</th>
-                            <th>Антифриз</th>
-                            <th>Расход антифриза, л</th>
-                        </tr>
-                    </thead>
+        <nav class="header-navigation">
+            <a
+                class="button button-secondary"
+                href="{% url 'balance_list' %}"
+            >
+                Баланс
+            </a>
 
-                    <tbody>
-                        {% for wash in washes %}
-                            <tr>
-                                <td>{{ wash.date|date:"d.m.Y" }}</td>
-                                <td>{{ wash.station }}</td>
-                                <td class="number-cell">
-                                    {{ wash.kts_before|floatformat:2 }}
-                                </td>
-                                <td class="number-cell">
-                                    {{ wash.kts_after|floatformat:2 }}
-                                </td>
-                                <td>{{ wash.cleaning_fluid }}</td>
-                                <td class="number-cell">
-                                    {{ wash.cleaning_fluid_amount|floatformat:2 }}
-                                </td>
+            <a
+                class="button button-primary"
+                href="{% url 'wash_create' %}"
+            >
+                + Добавить промывку
+            </a>
+        </nav>
 
-                                <td>
-                                    {% if wash.antifreeze %}
-                                        {{ wash.antifreeze }}
-                                    {% else %}
-                                        —
-                                    {% endif %}
-                                </td>
+    </div>
+</header>
 
-                                <td class="number-cell">
-                                    {% if wash.antifreeze_amount %}
-                                        {{ wash.antifreeze_amount|floatformat:2 }}
-                                    {% else %}
-                                        —
-                                    {% endif %}
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        {% else %}
-            <div class="empty-state">
-                <h2>Промывок пока нет</h2>
-                <p>
-                    Добавь первую запись через административную панель.
+<main class="page-container">
+
+    <section class="card">
+
+        <div class="card-header">
+            <div>
+                <h2 class="card-title">
+                    Выполненные промывки
+                </h2>
+
+                <p class="card-description">
+                    В таблице отображаются параметры промывок, расход
+                    промывочной жидкости и антифриза.
                 </p>
-
-                <a class="admin-link" href="/admin/">
-                    Открыть админ-панель
-                </a>
             </div>
-        {% endif %}
+        </div>
+
+        <div class="table-wrapper">
+
+            <table class="data-table">
+
+                <thead>
+                <tr>
+                    <th>КС</th>
+                    <th>Дата</th>
+                    <th>КТС до</th>
+                    <th>КТС после</th>
+                    <th>Промывочная жидкость</th>
+                    <th>Расход жидкости</th>
+                    <th>Антифриз</th>
+                    <th>Расход антифриза</th>
+                </tr>
+                </thead>
+
+                <tbody>
+
+                {% for wash in washes %}
+
+                    <tr>
+                        <td class="station-cell">
+                            {{ wash.station.name }}
+                        </td>
+
+                        <td>
+                            {{ wash.date|date:"d.m.Y" }}
+                        </td>
+
+                        <td>
+                            {{ wash.kts_before|floatformat:2 }}
+                        </td>
+
+                        <td>
+                            {{ wash.kts_after|floatformat:2 }}
+                        </td>
+
+                        <td>
+                            {{ wash.cleaning_fluid.name }}
+                        </td>
+
+                        <td>
+                            {% if wash.cleaning_fluid_amount > 0 %}
+                                <span class="consumption-value">
+                                    {{ wash.cleaning_fluid_amount|floatformat:2 }}
+                                    л
+                                </span>
+                            {% else %}
+                                0.00 л
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if wash.antifreeze %}
+                                {{ wash.antifreeze.name }}
+                            {% else %}
+                                <span class="empty-value">
+                                    Не использовался
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if wash.antifreeze_amount > 0 %}
+                                <span class="consumption-value">
+                                    {{ wash.antifreeze_amount|floatformat:2 }}
+                                    л
+                                </span>
+                            {% else %}
+                                0.00 л
+                            {% endif %}
+                        </td>
+                    </tr>
+
+                {% empty %}
+
+                    <tr>
+                        <td colspan="8">
+                            <div class="empty-state">
+                                <h3>Промывок пока нет</h3>
+
+                                <p>
+                                    Добавьте первую выполненную промывку,
+                                    чтобы она появилась в журнале.
+                                </p>
+
+                                <a
+                                    class="button button-primary"
+                                    href="{% url 'wash_create' %}"
+                                >
+                                    Добавить промывку
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+
+                {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
     </section>
-{% endblock %}
+
+</main>
+
+</body>
+</html>

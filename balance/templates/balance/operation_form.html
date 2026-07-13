@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Добавить операцию</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background: #f5f6f8;
+        }
+
+        .form-card {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 28px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: bold;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px;
+            border: 1px solid #cccccc;
+            border-radius: 6px;
+            font-size: 15px;
+        }
+
+        .errorlist {
+            margin: 6px 0;
+            padding-left: 20px;
+            color: #b00020;
+        }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 10px 18px;
+            border: none;
+            border-radius: 6px;
+            background: #1f6feb;
+            color: white;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        .button-secondary {
+            background: #666666;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="form-card">
+
+    <h1>Добавить операцию</h1>
+
+    <form method="post">
+        {% csrf_token %}
+
+        {{ form.non_field_errors }}
+
+        <div class="form-group">
+            {{ form.operation_type.label_tag }}
+            {{ form.operation_type }}
+            {{ form.operation_type.errors }}
+        </div>
+
+        <div class="form-group">
+            {{ form.from_station.label_tag }}
+            {{ form.from_station }}
+            {{ form.from_station.errors }}
+        </div>
+
+        <div class="form-group">
+            {{ form.to_station.label_tag }}
+            {{ form.to_station }}
+            {{ form.to_station.errors }}
+        </div>
+
+        <div class="form-group">
+            {{ form.cleaning_fluid.label_tag }}
+            {{ form.cleaning_fluid }}
+            {{ form.cleaning_fluid.errors }}
+        </div>
+
+        <div class="form-group">
+            {{ form.amount.label_tag }}
+            {{ form.amount }}
+            {{ form.amount.errors }}
+        </div>
+
+        <div class="form-group">
+            {{ form.date.label_tag }}
+            {{ form.date }}
+            {{ form.date.errors }}
+        </div>
+
+        <div class="form-group">
+            {{ form.comment.label_tag }}
+            {{ form.comment }}
+            {{ form.comment.errors }}
+        </div>
+
+        <div class="actions">
+            <button class="button" type="submit">
+                Сохранить
+            </button>
+
+            <a class="button button-secondary" href="{% url 'balance_list' %}">
+                Отмена
+            </a>
+        </div>
+    </form>
+
+</div>
+
+</body>
+</html>

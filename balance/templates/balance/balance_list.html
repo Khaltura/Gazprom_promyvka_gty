@@ -1,78 +1,241 @@
+{% load static %}
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Баланс</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <style>
+    <title>Баланс промывочной жидкости</title>
 
-        body{
-            font-family: Arial;
-            margin:40px;
-        }
-
-        table{
-            border-collapse:collapse;
-            width:100%;
-        }
-
-        th,td{
-            border:1px solid black;
-            padding:10px;
-            text-align:center;
-        }
-
-    </style>
-
+    <link
+        rel="stylesheet"
+        href="{% static 'balance/styles.css' %}"
+    >
 </head>
+
 <body>
 
-<h1>Баланс моющей жидкости</h1>
+<header class="page-header">
+    <div class="header-content">
 
-<table>
+        <div class="brand-text">
+            <h1 class="page-title">
+                Баланс промывочной жидкости
+            </h1>
 
-<tr>
-    <th>КС</th>
-    <th>Прибыло</th>
-    <th>Истрачено на промывки</th>
-    <th>Списано</th>
-    <th>Перераспределение</th>
-    <th>Остаток</th>
-</tr>
+            <p class="page-subtitle">
+                Учёт прихода, расхода, списания и перераспределения
+                промывочных жидкостей между компрессорными станциями
+            </p>
+        </div>
 
-{% for station in stations %}
+        <nav class="header-navigation">
+            <a
+                class="button button-secondary"
+                href="{% url 'wash_list' %}"
+            >
+                Журнал промывок
+            </a>
 
-<tr>
+            <a
+                class="button button-primary"
+                href="{% url 'operation_create' %}"
+            >
+                + Добавить операцию
+            </a>
+        </nav>
 
-    <td>{{ station.name }}</td>
+    </div>
+</header>
 
-    <td>{{ station.arrival }}</td>
+<main class="page-container">
 
-    <td>{{ station.wash }}</td>
+    <section class="summary-card total-summary-card">
+        <span class="summary-label">
+            Общий баланс по всем КС
+        </span>
 
-    <td>{{ station.writeoff }}</td>
+        <strong
+            class="
+                summary-value
+                {% if total_balance < 0 %}
+                    value-negative
+                {% endif %}
+            "
+        >
+            {{ total_balance|floatformat:2 }} л
+        </strong>
+    </section>
 
-    <td>{{ station.transfer }}</td>
+    <section class="card">
 
-    <td>{{ station.balance }}</td>
+        <div class="card-header">
+            <div>
+                <h2 class="card-title">
+                    Текущие остатки
+                </h2>
 
-</tr>
+                <p class="card-description">
+                    Баланс рассчитывается отдельно для каждой КС
+                    и каждого вида промывочной жидкости.
+                </p>
+            </div>
+        </div>
 
-{% empty %}
+        <div class="table-wrapper">
 
-<tr>
-    <td colspan="6">
-        Пока нет данных о промывках
-    </td>
-</tr>
+            <table class="data-table">
 
-{% endfor %}
+                <thead>
+                <tr>
+                    <th>КС</th>
+                    <th>Промывочная жидкость</th>
+                    <th>Прибыло</th>
+                    <th>Истрачено на промывки</th>
+                    <th>Убыло</th>
+                    <th>Получено</th>
+                    <th>Передано</th>
+                    <th>Перераспределение</th>
+                    <th>Итого сейчас</th>
+                </tr>
+                </thead>
 
-</table>
+                <tbody>
 
-<br>
+                {% for row in balance_rows %}
 
-<h2>Общий баланс по всем КС: {{ total_balance }} л</h2>
+                    <tr>
+                        <td class="station-cell">
+                            {{ row.station.name }}
+                        </td>
+
+                        <td>
+                            {{ row.fluid.name }}
+                        </td>
+
+                        <td>
+                            {% if row.arrival > 0 %}
+                                <span class="value-positive">
+                                    +{{ row.arrival|floatformat:2 }} л
+                                </span>
+                            {% else %}
+                                0.00 л
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if row.wash > 0 %}
+                                <span class="value-negative">
+                                    −{{ row.wash|floatformat:2 }} л
+                                </span>
+                            {% else %}
+                                0.00 л
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if row.writeoff > 0 %}
+                                <span class="value-negative">
+                                    −{{ row.writeoff|floatformat:2 }} л
+                                </span>
+                            {% else %}
+                                0.00 л
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if row.transfer_in > 0 %}
+                                <span class="value-positive">
+                                    +{{ row.transfer_in|floatformat:2 }} л
+                                </span>
+                            {% else %}
+                                0.00 л
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if row.transfer_out > 0 %}
+                                <span class="value-negative">
+                                    −{{ row.transfer_out|floatformat:2 }} л
+                                </span>
+                            {% else %}
+                                0.00 л
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if row.transfer > 0 %}
+
+                                <span class="status-badge status-positive">
+                                    +{{ row.transfer|floatformat:2 }} л
+                                </span>
+
+                            {% elif row.transfer < 0 %}
+
+                                <span class="status-badge status-negative">
+                                    {{ row.transfer|floatformat:2 }} л
+                                </span>
+
+                            {% else %}
+
+                                <span class="status-badge status-neutral">
+                                    0.00 л
+                                </span>
+
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if row.balance < 0 %}
+
+                                <strong class="balance-value value-negative">
+                                    {{ row.balance|floatformat:2 }} л
+                                </strong>
+
+                            {% else %}
+
+                                <strong class="balance-value">
+                                    {{ row.balance|floatformat:2 }} л
+                                </strong>
+
+                            {% endif %}
+                        </td>
+                    </tr>
+
+                {% empty %}
+
+                    <tr>
+                        <td colspan="9">
+                            <div class="empty-state">
+                                <h3>Нет данных для расчёта баланса</h3>
+
+                                <p>
+                                    Добавьте приход жидкости или другую
+                                    материальную операцию.
+                                </p>
+
+                                <a
+                                    class="button button-primary"
+                                    href="{% url 'operation_create' %}"
+                                >
+                                    Добавить первую операцию
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+
+                {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+</main>
 
 </body>
 </html>

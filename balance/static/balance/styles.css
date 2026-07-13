@@ -107,6 +107,34 @@ body {
     padding: 32px 40px;
 }
 
+.summary-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    padding: 22px;
+
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+
+    box-shadow: var(--shadow);
+}
+
+.total-summary-card {
+    margin-bottom: 24px;
+}
+
+.summary-label {
+    color: var(--muted-text-color);
+    font-size: 14px;
+}
+
+.summary-value {
+    font-size: 28px;
+    line-height: 1.2;
+}
+
 .card {
     overflow: hidden;
 
@@ -149,7 +177,7 @@ body {
 
 .data-table {
     width: 100%;
-    min-width: 1100px;
+    min-width: 1250px;
 
     border-collapse: collapse;
 }
@@ -191,14 +219,45 @@ body {
     font-weight: 700;
 }
 
-.consumption-value {
-    color: var(--negative-color);
-    font-weight: 600;
+.balance-value {
+    font-size: 16px;
 }
 
-.empty-value {
-    color: var(--muted-text-color);
+.value-positive {
+    color: var(--positive-color);
+}
+
+.value-negative {
+    color: var(--negative-color);
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-width: 88px;
+    padding: 6px 10px;
+
+    border-radius: 999px;
+
     font-size: 13px;
+    font-weight: 700;
+}
+
+.status-positive {
+    color: var(--positive-color);
+    background: var(--positive-background);
+}
+
+.status-negative {
+    color: var(--negative-color);
+    background: var(--negative-background);
+}
+
+.status-neutral {
+    color: var(--neutral-color);
+    background: var(--neutral-background);
 }
 
 .button {
@@ -258,20 +317,6 @@ body {
     background: rgba(255, 255, 255, 0.24);
 }
 
-.button-outline {
-    color: var(--neutral-color);
-    background: #ffffff;
-
-    border-color: var(--border-color);
-}
-
-.button-outline:hover {
-    color: var(--text-color);
-    background: #f1f3f5;
-
-    border-color: #bdc6d0;
-}
-
 .empty-state {
     padding: 50px 20px;
 
@@ -286,228 +331,6 @@ body {
     margin: 0 0 22px;
 
     color: var(--muted-text-color);
-}
-
-/* Форма добавления промывки */
-
-.form-page-container {
-    width: 100%;
-    max-width: 1000px;
-    margin: 0 auto;
-    padding: 32px 40px;
-}
-
-.form-page-container-single {
-    display: block;
-}
-
-.form-card {
-    overflow: hidden;
-
-    background: var(--card-background);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-
-    box-shadow: var(--shadow);
-}
-
-.form-card-header {
-    padding: 24px 30px;
-
-    background:
-        linear-gradient(
-            180deg,
-            #ffffff,
-            #fafbfd
-        );
-
-    border-bottom: 1px solid var(--border-color);
-}
-
-.form-title {
-    margin: 0 0 7px;
-
-    font-size: 22px;
-    line-height: 1.25;
-}
-
-.form-description {
-    margin: 0;
-
-    color: var(--muted-text-color);
-
-    font-size: 14px;
-    line-height: 1.55;
-}
-
-.wash-form {
-    padding: 30px;
-}
-
-.form-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 22px 26px;
-}
-
-.form-field {
-    min-width: 0;
-}
-
-.form-field-wide,
-.form-section-title {
-    grid-column: 1 / -1;
-}
-
-.form-section-title {
-    margin-top: 8px;
-    padding-bottom: 9px;
-
-    color: var(--primary-color);
-
-    border-bottom: 1px solid var(--border-color);
-
-    font-size: 16px;
-    font-weight: 700;
-}
-
-.form-field label {
-    display: block;
-
-    margin-bottom: 8px;
-
-    font-size: 14px;
-    font-weight: 700;
-}
-
-.required-mark {
-    color: var(--negative-color);
-}
-
-.form-field input,
-.form-field select,
-.form-field textarea {
-    display: block;
-
-    width: 100%;
-    min-height: 44px;
-    padding: 10px 12px;
-
-    color: var(--text-color);
-    background: #ffffff;
-
-    border: 1px solid #cbd3dc;
-    border-radius: 7px;
-
-    font-family: inherit;
-    font-size: 15px;
-
-    outline: none;
-
-    transition:
-        border-color 0.15s ease,
-        box-shadow 0.15s ease,
-        background-color 0.15s ease;
-}
-
-.form-field input:hover,
-.form-field select:hover,
-.form-field textarea:hover {
-    border-color: #9ca9b8;
-}
-
-.form-field input:focus,
-.form-field select:focus,
-.form-field textarea:focus {
-    border-color: var(--primary-color);
-
-    box-shadow:
-        0 0 0 3px rgba(21, 101, 192, 0.13);
-}
-
-.field-help {
-    margin-top: 7px;
-
-    color: var(--muted-text-color);
-
-    font-size: 12px;
-    line-height: 1.4;
-}
-
-.field-error {
-    margin-top: 7px;
-    padding: 8px 10px;
-
-    color: var(--negative-color);
-    background: var(--negative-background);
-
-    border-radius: 6px;
-
-    font-size: 13px;
-    line-height: 1.4;
-}
-
-.errorlist {
-    margin: 0;
-    padding: 0;
-
-    list-style: none;
-}
-
-.form-alert {
-    margin-bottom: 20px;
-    padding: 13px 15px;
-
-    border-radius: 8px;
-
-    font-size: 14px;
-    line-height: 1.5;
-}
-
-.form-alert-error {
-    color: var(--negative-color);
-    background: var(--negative-background);
-
-    border: 1px solid rgba(180, 35, 24, 0.2);
-}
-
-.input-with-unit {
-    position: relative;
-}
-
-.input-with-unit input {
-    padding-right: 48px;
-}
-
-.input-unit {
-    position: absolute;
-    top: 50%;
-    right: 13px;
-
-    color: var(--muted-text-color);
-
-    font-size: 14px;
-    font-weight: 700;
-
-    pointer-events: none;
-
-    transform: translateY(-50%);
-}
-
-.form-actions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 12px;
-
-    margin-top: 30px;
-    padding-top: 24px;
-
-    border-top: 1px solid var(--border-color);
-}
-
-.form-submit-button {
-    min-width: 190px;
 }
 
 @media (max-width: 1100px) {
@@ -531,8 +354,7 @@ body {
         font-size: 24px;
     }
 
-    .page-container,
-    .form-page-container {
+    .page-container {
         padding: 22px 14px;
     }
 
@@ -546,35 +368,5 @@ body {
 
     .card-header {
         padding: 18px;
-    }
-}
-
-@media (max-width: 600px) {
-    .form-card-header,
-    .wash-form {
-        padding: 18px;
-    }
-
-    .form-grid {
-        grid-template-columns: 1fr;
-        gap: 18px;
-    }
-
-    .form-field-wide,
-    .form-section-title {
-        grid-column: auto;
-    }
-
-    .form-field-placeholder {
-        display: none;
-    }
-
-    .form-actions {
-        align-items: stretch;
-        flex-direction: column-reverse;
-    }
-
-    .form-actions .button {
-        width: 100%;
     }
 }
