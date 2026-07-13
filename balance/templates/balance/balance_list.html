@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Баланс</title>
+
+    <style>
+
+        body{
+            font-family: Arial;
+            margin:40px;
+        }
+
+        table{
+            border-collapse:collapse;
+            width:100%;
+        }
+
+        th,td{
+            border:1px solid black;
+            padding:10px;
+            text-align:center;
+        }
+
+    </style>
+
+</head>
+<body>
+
+<h1>Баланс моющей жидкости</h1>
+
+<table>
+
+<tr>
+    <th>КС</th>
+    <th>Прибыло</th>
+    <th>Истрачено на промывки</th>
+    <th>Списано</th>
+    <th>Перераспределение</th>
+    <th>Остаток</th>
+</tr>
+
+{% for station in stations %}
+
+<tr>
+
+    <td>{{ station.name }}</td>
+
+    <td>{{ station.arrival }}</td>
+
+    <td>{{ station.wash }}</td>
+
+    <td>{{ station.writeoff }}</td>
+
+    <td>{{ station.transfer }}</td>
+
+    <td>{{ station.balance }}</td>
+
+</tr>
+
+{% empty %}
+
+<tr>
+    <td colspan="6">
+        Пока нет данных о промывках
+    </td>
+</tr>
+
+{% endfor %}
+
+</table>
+
+<br>
+
+<h2>Общий баланс по всем КС: {{ total_balance }} л</h2>
+
+</body>
+</html>
