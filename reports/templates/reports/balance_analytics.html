@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+
+{% block title %}Аналитика баланса{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Аналитика баланса</h1>
+        <div class="muted">Приходы, списания, перераспределения и текущие остатки</div>
+    </div>
+    <div class="actions">
+        <a class="btn" href="{% url 'wash_analytics' %}">Аналитика промывок</a>
+        <a class="btn" href="{% url 'export_balance_excel' %}?{{ request.GET.urlencode }}">Excel по балансу</a>
+    </div>
+</div>
+
+<form class="filter" method="get">
+    <label>
+        КС
+        <select name="station">
+            <option value="">Все доступные КС</option>
+            {% for station in stations_all %}
+                <option value="{{ station.id }}" {% if selected_station and selected_station.id == station.id %}selected{% endif %}>{{ station }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>С<input type="date" name="date_from" value="{{ request.GET.date_from }}"></label>
+    <label>По<input type="date" name="date_to" value="{{ request.GET.date_to }}"></label>
+    <button class="btn btn-primary">Применить</button>
+</form>
+
+<div class="summary-grid">
+    <div class="metric">Операций<b>{{ operations_count }}</b></div>
+    <div class="metric">Приход<b>{{ arrival_total|floatformat:2 }} л</b></div>
+    <div class="metric">Списано<b>{{ writeoff_total|floatformat:2 }} л</b></div>
+    <div class="metric">Перераспределено<b>{{ transfer_total|floatformat:2 }} л</b></div>
+    <div class="metric">Остаток жидкости<b>{{ cleaning_balance|floatformat:2 }} л</b></div>
+    <div class="metric">Остаток антифриза<b>{{ antifreeze_balance|floatformat:2 }} л</b></div>
+</div>
+
+<section class="card chart chart-wide chart-line"><canvas id="operationsChart"></canvas></section>
+<section class="card chart chart-wide chart-bar"><canvas id="balanceChart"></canvas></section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const daily = {{ daily_json|safe }};
+const balances = {{ balance_json|safe }};
+
+new Chart(document.getElementById('operationsChart'), {
+    type: 'line',
+    data: {
+        labels: daily.map(item => item.date),
+        datasets: [
+            {label: 'Приход, л', data: daily.map(item => item.arrival), borderWidth: 3, tension: 0.25},
+            {label: 'Списание, л', data: daily.map(item => item.writeoff), borderWidth: 3, tension: 0.25},
+            {label: 'Перераспределение, л', data: daily.map(item => item.transfer), borderWidth: 3, tension: 0.25}
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            x: {title: {display: true, text: 'Дата'}},
+            y: {beginAtZero: true, title: {display: true, text: 'Литры'}}
+        },
+        plugins: {title: {display: true, text: 'Движение материалов по датам'}}
+    }
+});
+
+new Chart(document.getElementById('balanceChart'), {
+    type: 'bar',
+    data: {
+        labels: balances.map(item => item.name),
+        datasets: [{label: 'Остаток, л', data: balances.map(item => item.value), borderWidth: 1}]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            x: {title: {display: true, text: 'КС и материал'}},
+            y: {title: {display: true, text: 'Литры'}}
+        },
+        plugins: {title: {display: true, text: 'Текущие остатки по КС и видам материалов'}}
+    }
+});
+</script>
+{% endblock %}

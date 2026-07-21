@@ -1,340 +1,143 @@
-{% load static %}
+{% extends 'base.html' %}
 
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+{% block title %}Баланс{% endblock %}
 
-    <title>Баланс промывочной жидкости</title>
-
-    <link
-        rel="stylesheet"
-        href="{% static 'balance/styles.css' %}"
-    >
-</head>
-
-<body>
-    <nav style="background:#1565c0;padding:15px 30px;display:flex;gap:20px;align-items:center;">
-    <a href="{% url 'wash_list' %}" style="color:white;text-decoration:none;font-weight:bold;">
-        Журнал промывок
-    </a>
-
-    <a href="{% url 'balance_list' %}" style="color:white;text-decoration:none;font-weight:bold;">
-        Баланс
-    </a>
-
-    <a href="{% url 'operation_create' %}" style="color:white;text-decoration:none;font-weight:bold;">
-        Добавить операцию
-    </a>
-
-    <div style="margin-left:auto;"></div>
-
-    {% if user.is_authenticated %}
-        <span style="color:white;">
-            {{ user.username }}
-        </span>
-
-        <a href="{% url 'logout' %}" style="color:white;text-decoration:none;font-weight:bold;margin-left:20px;">
-            Выйти
-        </a>
-    {% endif %}
-</nav>
-
-<header class="page-header">
-    <div class="header-content">
-
-        <div class="brand-text">
-            <h1 class="page-title">
-                Баланс промывочной жидкости
-            </h1>
-
-            <p class="page-subtitle">
-                Учёт прихода, расхода, списания и перераспределения
-                промывочных жидкостей между компрессорными станциями
-            </p>
-        </div>
-
-        <nav class="header-navigation">
-            <a
-                class="button button-secondary"
-                href="{% url 'wash_list' %}"
-            >
-                Журнал промывок
-            </a>
-
-            <a
-                class="button button-primary"
-                href="{% url 'operation_create' %}"
-            >
-                + Добавить операцию
-            </a>
-        </nav>
-
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Баланс материалов</h1>
+        <div class="muted">Остатки и все движения промывочных жидкостей и антифриза</div>
     </div>
-</header>
 
-<main class="page-container">
+    <div class="actions">
+        <a class="btn btn-primary" href="{% url 'operation_create' %}">Добавить операцию</a>
+        <a class="btn" href="{% url 'export_balance_excel' %}?{{ request.GET.urlencode }}">Скачать Excel</a>
+    </div>
+</div>
 
-    <section class="summary-card total-summary-card">
-        <span class="summary-label">
-            Общий баланс по всем КС
-        </span>
 
-        <strong
-            class="
-                summary-value
-                {% if total_balance < 0 %}
-                    value-negative
-                {% endif %}
-            "
-        >
-            {{ total_balance|floatformat:0 }} л
-        </strong>
-    </section>
+<form class="filter" method="get">
+    <label>
+        КС
+        <select name="station">
+            <option value="">Все доступные КС</option>
+            {% for station in stations_all %}
+                <option value="{{ station.id }}" {% if selected_station and selected_station.id == station.id %}selected{% endif %}>{{ station }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <button class="btn btn-primary" type="submit">Применить</button>
+    {% if selected_station %}<a class="btn" href="{% url 'balance_list' %}">Сбросить</a>{% endif %}
+</form>
 
-    <section class="card">
-
-        <div class="card-header">
-            <div>
-                <h2 class="card-title">
-                    Текущие остатки
-                </h2>
-
-                <p class="card-description">
-                    Баланс рассчитывается отдельно для каждой КС
-                    и каждого вида промывочной жидкости.
-                </p>
-            </div>
+<div class="summary-grid">
+    {% for item in material_summary %}
+        <div class="metric">
+            <span class="muted">{{ item.material_type_label }}</span><br>
+            {{ item.material }}
+            <b>{{ item.balance|floatformat:2 }} л</b>
         </div>
-
-        <div class="table-wrapper">
-
-            <table class="data-table">
-
-                <thead>
-                <tr>
-                    <th>КС</th>
-                    <th>Промывочная жидкость</th>
-                    <th>Прибыло</th>
-                    <th>Истрачено на промывки</th>
-                    <th>Убыло</th>
-                    <th>Получено</th>
-                    <th>Передано</th>
-                    <th>Перераспределение</th>
-                    <th>Итого сейчас</th>
-                </tr>
-                </thead>
-
-                <tbody>
-
-                {% for row in balance_rows %}
-
-                    <tr>
-                        <td class="station-cell">
-                            {{ row.station.name }}
-                        </td>
-
-                        <td>
-                            {{ row.fluid.name }}
-                        </td>
-
-                        <td>
-                            {% if row.arrival > 0 %}
-                                <span class="value-positive">
-                                    +{{ row.arrival|floatformat:0 }} л
-                                </span>
-                            {% else %}
-                                0.00 л
-                            {% endif %}
-                        </td>
-
-                        <td>
-                            {% if row.wash > 0 %}
-                                <span class="value-negative">
-                                    −{{ row.wash|floatformat:0 }} л
-                                </span>
-                            {% else %}
-                                0.00 л
-                            {% endif %}
-                        </td>
-
-                        <td>
-                            {% if row.writeoff > 0 %}
-                                <span class="value-negative">
-                                    −{{ row.writeoff|floatformat:0 }} л
-                                </span>
-                            {% else %}
-                                0.00 л
-                            {% endif %}
-                        </td>
-
-                        <td>
-                            {% if row.transfer_in > 0 %}
-                                <span class="value-positive">
-                                    +{{ row.transfer_in|floatformat:0 }} л
-                                </span>
-                            {% else %}
-                                0.00 л
-                            {% endif %}
-                        </td>
-
-                        <td>
-                            {% if row.transfer_out > 0 %}
-                                <span class="value-negative">
-                                    −{{ row.transfer_out|floatformat:0 }} л
-                                </span>
-                            {% else %}
-                                0.00 л
-                            {% endif %}
-                        </td>
-
-                        <td>
-                            {% if row.transfer > 0 %}
-
-                                <span class="status-badge status-positive">
-                                    +{{ row.transfer|floatformat:0 }} л
-                                </span>
-
-                            {% elif row.transfer < 0 %}
-
-                                <span class="status-badge status-negative">
-                                    {{ row.transfer|floatformat:0 }} л
-                                </span>
-
-                            {% else %}
-
-                                <span class="status-badge status-neutral">
-                                    0.00 л
-                                </span>
-
-                            {% endif %}
-                        </td>
-
-                        <td>
-                            {% if row.balance < 0 %}
-
-                                <strong class="balance-value value-negative">
-                                    {{ row.balance|floatformat:0 }} л
-                                </strong>
-
-                            {% else %}
-
-                                <strong class="balance-value">
-                                    {{ row.balance|floatformat:0 }} л
-                                </strong>
-
-                            {% endif %}
-                        </td>
-                    </tr>
-
-                {% empty %}
-
-                    <tr>
-                        <td colspan="9">
-                            <div class="empty-state">
-                                <h3>Нет данных для расчёта баланса</h3>
-
-                                <p>
-                                    Добавьте приход жидкости или другую
-                                    материальную операцию.
-                                </p>
-
-                                <a
-                                    class="button button-primary"
-                                    href="{% url 'operation_create' %}"
-                                >
-                                    Добавить первую операцию
-                                </a>
-                            </div>
-                        </td>
-                    </tr>
-
-                {% endfor %}
-
-                </tbody>
-
-            </table>
-
+    {% empty %}
+        <div class="metric">
+            <span class="muted">Остатки</span>
+            <b>Данных пока нет</b>
         </div>
+    {% endfor %}
+</div>
 
-    </section>
-<section class="card" style="margin-top:30px;">
-
-    <div class="card-header">
+<section class="card">
+    <div class="card-body section-heading">
         <div>
-            <h2 class="card-title">
-                Общий баланс материалов
-            </h2>
-
-            <p class="card-description">
-                Сводная информация по всем материалам.
-            </p>
+            <h2>Текущие остатки</h2>
+            <div class="muted">Баланс строго по каждому виду материала</div>
         </div>
     </div>
-
-    <div class="table-wrapper">
-
-        <table class="data-table">
-
+    <div class="table-wrap">
+        <table>
             <thead>
                 <tr>
-                    <th>Материал</th>
+                    <th>КС</th>
                     <th>Тип</th>
-                    <th>Количество</th>
+                    <th>Материал</th>
+                    <th>Приход</th>
+                    <th>Промывки</th>
+                    <th>Списание</th>
+                    <th>Получено</th>
+                    <th>Передано</th>
+                    <th>Остаток</th>
                 </tr>
             </thead>
-
             <tbody>
-
-            {% for material in material_summary %}
-
-                <tr>
-
-                    <td>{{ material.name }}</td>
-
-                    <td>{{ material.type }}</td>
-
-                    <td>
-
-                        {% if material.balance < 0 %}
-
-                            <strong class="value-negative">
-                                {{ material.balance|floatformat:0 }} л
-                            </strong>
-
-                        {% else %}
-
-                            <strong>
-                                {{ material.balance|floatformat:0 }} л
-                            </strong>
-
-                        {% endif %}
-
-                    </td>
-
-                </tr>
-
-            {% empty %}
-
-                <tr>
-                    <td colspan="3">
-                        Пока нет данных
-                    </td>
-                </tr>
-
-            {% endfor %}
-
+                {% for row in balance_rows %}
+                    <tr>
+                        <td><b>{{ row.station }}</b></td>
+                        <td>{{ row.material_type_label }}</td>
+                        <td>{{ row.material }}</td>
+                        <td class="positive">{{ row.arrival|floatformat:2 }}</td>
+                        <td class="negative">{{ row.wash|floatformat:2 }}</td>
+                        <td class="negative">{{ row.writeoff|floatformat:2 }}</td>
+                        <td class="positive">{{ row.transfer_in|floatformat:2 }}</td>
+                        <td class="negative">{{ row.transfer_out|floatformat:2 }}</td>
+                        <td class="{% if row.balance < 0 %}negative{% else %}positive{% endif %}">
+                            {{ row.balance|floatformat:2 }}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="9">Данных пока нет</td></tr>
+                {% endfor %}
             </tbody>
-
         </table>
-
     </div>
-
 </section>
 
+<section class="card">
+    <div class="card-body section-heading">
+        <div>
+            <h2>Движение материалов</h2>
+            <div class="muted">Приходы, списания и перераспределения между КС</div>
+        </div>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Дата</th>
+                    <th>Операция</th>
+                    <th>Тип материала</th>
+                    <th>Материал</th>
+                    <th>Откуда</th>
+                    <th>Куда</th>
+                    <th>Количество</th>
+                    <th>Комментарий</th>
+                    <th>Создал</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for operation in operations %}
+                    <tr {% if user.is_superuser or operation.created_by_id == user.id %}class="clickable-row" onclick="window.location='{% url 'operation_update' operation.pk %}'"{% endif %}>
+                        <td>{{ operation.date|date:'d.m.Y' }}</td>
+                        <td>{{ operation.get_operation_type_display }}</td>
+                        <td>{{ operation.get_material_type_display }}</td>
+                        <td><b>{{ operation.material_name }}</b></td>
+                        <td>{{ operation.from_station|default:'—' }}</td>
+                        <td>{{ operation.to_station|default:'—' }}</td>
+                        <td>{{ operation.amount|floatformat:2 }} л</td>
+                        <td>{{ operation.comment|default:'—' }}</td>
+                        <td>{{ operation.created_by|default:'—' }}</td>
+                        <td>
+                            {% if user.is_superuser or operation.created_by_id == user.id %}
+                                <a class="table-link" href="{% url 'operation_update' operation.pk %}" onclick="event.stopPropagation()">Изменить</a>
+                            {% else %}
+                                <span class="muted">Только просмотр</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="10">Операций пока нет</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </section>
-</main>
-
-</body>
-</html>
+{% endblock %}

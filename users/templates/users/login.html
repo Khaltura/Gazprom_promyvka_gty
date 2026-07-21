@@ -1,17 +1,1 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Login</title>
-</head>
-<body>
-
-<h1>Проверка</h1>
-
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Войти</button>
-</form>
-
-</body>
-</html>
+{% extends 'base.html' %}{% block title %}Вход{% endblock %}{% block content %}<section class="card auth"><div class="card-body"><h1>Вход в систему</h1><p class="muted">Введите логин и пароль.</p><form method="post">{% csrf_token %}{{ form.non_field_errors }}{% for field in form %}<div class="field"><label>{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endfor %}<br><button class="btn btn-primary">Войти</button> <a class="btn" href="{% url 'register' %}">Регистрация</a></form></div></section>{% endblock %}

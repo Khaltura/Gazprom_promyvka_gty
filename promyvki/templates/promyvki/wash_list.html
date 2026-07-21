@@ -1,204 +1,73 @@
-{% load static %}
+{% extends 'base.html' %}
 
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+{% block title %}Промывки{% endblock %}
 
-    <title>Журнал промывок</title>
-
-    <link
-        rel="stylesheet"
-        href="{% static 'promyvki/styles.css' %}"
-    >
-</head>
-
-<body>
-    <nav style="background:#1565c0;padding:15px 30px;display:flex;gap:20px;align-items:center;">
-    <a href="{% url 'wash_list' %}" style="color:white;text-decoration:none;font-weight:bold;">
-        Журнал промывок
-    </a>
-
-    <a href="{% url 'balance_list' %}" style="color:white;text-decoration:none;font-weight:bold;">
-        Баланс
-    </a>
-
-    <a href="{% url 'operation_create' %}" style="color:white;text-decoration:none;font-weight:bold;">
-        Добавить операцию
-    </a>
-
-    <div style="margin-left:auto;"></div>
-
-    {% if user.is_authenticated %}
-        <span style="color:white;">
-            {{ user.username }}
-        </span>
-
-        <a href="{% url 'logout' %}" style="color:white;text-decoration:none;font-weight:bold;margin-left:20px;">
-            Выйти
-        </a>
-    {% endif %}
-</nav>
-
-<header class="page-header">
-    <div class="header-content">
-
-        <div class="brand-text">
-            <h1 class="page-title">
-                Журнал промывок
-            </h1>
-
-            <p class="page-subtitle">
-                Учёт проведённых промывок оборудования на компрессорных
-                станциях
-            </p>
-        </div>
-
-        <nav class="header-navigation">
-            <a
-                class="button button-secondary"
-                href="{% url 'balance_list' %}"
-            >
-                Баланс
-            </a>
-
-            <a
-                class="button button-primary"
-                href="{% url 'wash_create' %}"
-            >
-                + Добавить промывку
-            </a>
-        </nav>
-
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Промывки</h1>
+        <div class="muted">Проведённые работы и расход материалов</div>
     </div>
-</header>
+    <div class="actions"><a class="btn btn-primary" href="{% url 'wash_create' %}">Добавить промывку</a><a class="btn" href="{% url 'export_washes_excel' %}?{{ request.GET.urlencode }}">Скачать Excel</a></div>
+</div>
 
-<main class="page-container">
 
-    <section class="card">
+<form class="filter" method="get">
+    <label>
+        КС
+        <select name="station">
+            <option value="">Все доступные КС</option>
+            {% for station in stations_all %}
+                <option value="{{ station.id }}" {% if selected_station and selected_station.id == station.id %}selected{% endif %}>{{ station }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <button class="btn btn-primary" type="submit">Применить</button>
+    {% if selected_station %}<a class="btn" href="{% url 'wash_list' %}">Сбросить</a>{% endif %}
+</form>
 
-        <div class="card-header">
-            <div>
-                <h2 class="card-title">
-                    Выполненные промывки
-                </h2>
-
-                <p class="card-description">
-                    В таблице отображаются параметры промывок, расход
-                    промывочной жидкости и антифриза.
-                </p>
-            </div>
-        </div>
-
-        <div class="table-wrapper">
-
-            <table class="data-table">
-
-                <thead>
+<section class="card">
+    <div class="table-wrap">
+        <table>
+            <thead>
                 <tr>
                     <th>КС</th>
                     <th>Дата</th>
                     <th>КТС до</th>
                     <th>КТС после</th>
-                    <th>Промывочная жидкость</th>
+                    <th>Жидкость</th>
                     <th>Расход жидкости</th>
                     <th>Антифриз</th>
                     <th>Расход антифриза</th>
+                    <th>Создал</th>
+                    <th></th>
                 </tr>
-                </thead>
-
-                <tbody>
-
+            </thead>
+            <tbody>
                 {% for wash in washes %}
-
-                    <tr>
-                        <td class="station-cell">
-                            {{ wash.station.name }}
-                        </td>
-
+                    <tr {% if user.is_superuser or wash.created_by_id == user.id %}class="clickable-row" onclick="window.location='{% url 'wash_update' wash.pk %}'"{% endif %}>
+                        <td><b>{{ wash.station }}</b></td>
+                        <td>{{ wash.date|date:'d.m.Y' }}</td>
+                        <td>{{ wash.kts_before|floatformat:2 }}</td>
+                        <td>{{ wash.kts_after|floatformat:2 }}</td>
+                        <td>{{ wash.cleaning_fluid }}</td>
+                        <td class="negative">{{ wash.cleaning_fluid_amount|floatformat:2 }} л</td>
+                        <td>{{ wash.antifreeze|default:'—' }}</td>
+                        <td class="negative">{{ wash.antifreeze_amount|floatformat:2 }} л</td>
+                        <td>{{ wash.created_by|default:'—' }}</td>
                         <td>
-                            {{ wash.date|date:"d.m.Y" }}
-                        </td>
-
-                        <td>
-                            {{ wash.kts_before|floatformat:0 }}
-                        </td>
-
-                        <td>
-                            {{ wash.kts_after|floatformat:0 }}
-                        </td>
-
-                        <td>
-                            {{ wash.cleaning_fluid.name }}
-                        </td>
-
-                        <td>
-                            {% if wash.cleaning_fluid_amount > 0 %}
-                                <span class="consumption-value">
-                                    {{ wash.cleaning_fluid_amount|floatformat:0 }}
-                                    л
-                                </span>
+                            {% if user.is_superuser or wash.created_by_id == user.id %}
+                                <a class="table-link" href="{% url 'wash_update' wash.pk %}" onclick="event.stopPropagation()">Изменить</a>
                             {% else %}
-                                0.00 л
-                            {% endif %}
-                        </td>
-
-                        <td>
-                            {% if wash.antifreeze %}
-                                {{ wash.antifreeze.name }}
-                            {% else %}
-                                <span class="empty-value">
-                                    Не использовался
-                                </span>
-                            {% endif %}
-                        </td>
-
-                        <td>
-                            {% if wash.antifreeze_amount > 0 %}
-                                <span class="consumption-value">
-                                    {{ wash.antifreeze_amount|floatformat:0 }}
-                                    л
-                                </span>
-                            {% else %}
-                                0.00 л
+                                <span class="muted">Только просмотр</span>
                             {% endif %}
                         </td>
                     </tr>
-
                 {% empty %}
-
-                    <tr>
-                        <td colspan="8">
-                            <div class="empty-state">
-                                <h3>Промывок пока нет</h3>
-
-                                <p>
-                                    Добавьте первую выполненную промывку,
-                                    чтобы она появилась в журнале.
-                                </p>
-
-                                <a
-                                    class="button button-primary"
-                                    href="{% url 'wash_create' %}"
-                                >
-                                    Добавить промывку
-                                </a>
-                            </div>
-                        </td>
-                    </tr>
-
+                    <tr><td colspan="10">Промывок нет</td></tr>
                 {% endfor %}
-
-                </tbody>
-
-            </table>
-
-        </div>
-
-    </section>
-
-</main>
-
-</body>
-</html>
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

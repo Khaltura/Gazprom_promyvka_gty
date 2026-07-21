@@ -1,228 +1,196 @@
 from decimal import Decimal
 
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
+from django.db import models
 from django.db.models import Sum
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 
-from promyvki.models import (
-    CompressorStation,
-    CleaningFluid,
-    Antifreeze,
-    Wash,
-)
+from promyvki.models import Antifreeze, CleaningFluid, CompressorStation, Wash
 
 from .forms import MaterialOperationForm
 from .models import MaterialOperation
-
+from users.utils import has_assigned_stations, user_stations
 
 ZERO = Decimal("0.00")
 
 
-def get_sum(queryset, field_name):
-    """
-    Возвращает сумму указанного поля.
-
-    Если подходящих записей нет, возвращает Decimal("0.00").
-    """
-    result = queryset.aggregate(total=Sum(field_name))["total"]
-    return result or ZERO
+def station_scope(user):
+    return user_stations(user)
 
 
-def balance_list(request):
-    """
-    Формирует таблицу баланса отдельно для каждой комбинации:
-    компрессорная станция + промывочная жидкость.
-    """
+def selected_station_scope(request):
+    """Возвращает доступные КС с учётом выбранного фильтра."""
+    available = station_scope(request.user)
+    selected = None
+    station_id = request.GET.get("station")
+    if station_id:
+        selected = available.filter(pk=station_id).first()
+        if selected:
+            return available.filter(pk=selected.pk), available, selected
+    return available, available, selected
 
-    balance_rows = []
 
-    if (
-        request.user.is_authenticated
-        and not request.user.is_superuser
-        and hasattr(request.user, "userprofile")
-    ):
-        stations = CompressorStation.objects.filter(
-            id=request.user.userprofile.station.id
+def sum_field(queryset, field="amount"):
+    return queryset.aggregate(value=Sum(field))["value"] or ZERO
+
+
+def build_row(station, material_type, material):
+    key = "cleaning_fluid" if material_type == MaterialOperation.CLEANING else "antifreeze"
+    base = MaterialOperation.objects.filter(material_type=material_type, **{key: material})
+
+    arrival = sum_field(base.filter(operation_type=MaterialOperation.ARRIVAL, to_station=station))
+    writeoff = sum_field(base.filter(operation_type=MaterialOperation.WRITEOFF, from_station=station))
+    incoming = sum_field(base.filter(operation_type=MaterialOperation.TRANSFER, to_station=station))
+    outgoing = sum_field(base.filter(operation_type=MaterialOperation.TRANSFER, from_station=station))
+
+    if material_type == MaterialOperation.CLEANING:
+        consumed = sum_field(
+            Wash.objects.filter(station=station, cleaning_fluid=material),
+            "cleaning_fluid_amount",
         )
     else:
-        stations = CompressorStation.objects.all().order_by("name")
-
-    fluids = CleaningFluid.objects.all().order_by("name")
-
-    for station in stations:
-        for fluid in fluids:
-
-            arrival = get_sum(
-                MaterialOperation.objects.filter(
-                    operation_type="arrival",
-                    to_station=station,
-                    cleaning_fluid=fluid,
-                ),
-                "amount",
-            )
-
-            writeoff = get_sum(
-                MaterialOperation.objects.filter(
-                    operation_type="writeoff",
-                    from_station=station,
-                    cleaning_fluid=fluid,
-                ),
-                "amount",
-            )
-
-            wash = get_sum(
-                Wash.objects.filter(
-                    station=station,
-                    cleaning_fluid=fluid,
-                ),
-                "cleaning_fluid_amount",
-            )
-
-            transfer_out = get_sum(
-                MaterialOperation.objects.filter(
-                    operation_type="transfer",
-                    from_station=station,
-                    cleaning_fluid=fluid,
-                ),
-                "amount",
-            )
-
-            transfer_in = get_sum(
-                MaterialOperation.objects.filter(
-                    operation_type="transfer",
-                    to_station=station,
-                    cleaning_fluid=fluid,
-                ),
-                "amount",
-            )
-
-            transfer = transfer_in - transfer_out
-
-            current_balance = (
-                arrival
-                + transfer_in
-                - transfer_out
-                - writeoff
-                - wash
-            )
-
-            has_operations = any(
-                value != ZERO
-                for value in (
-                    arrival,
-                    writeoff,
-                    wash,
-                    transfer_in,
-                    transfer_out,
-                )
-            )
-
-            if has_operations:
-                balance_rows.append(
-                    {
-                        "station": station,
-                        "fluid": fluid,
-                        "arrival": arrival,
-                        "wash": wash,
-                        "writeoff": writeoff,
-                        "transfer_in": transfer_in,
-                        "transfer_out": transfer_out,
-                        "transfer": transfer,
-                        "balance": current_balance,
-                    }
-                )
-
-        total_balance = sum(
-        (row["balance"] for row in balance_rows),
-        ZERO,
-    )
-
-        material_summary = []
-
-    # Промывочные жидкости
-    for fluid in fluids:
-
-        balance = ZERO
-
-        for row in balance_rows:
-            if row["fluid"] == fluid:
-                balance += row["balance"]
-
-        if balance != ZERO:
-            material_summary.append(
-                {
-                    "name": fluid.name,
-                    "type": "Промывочная жидкость",
-                    "balance": balance,
-                }
-            )
-
-    # Антифриз
-    antifreezes = Antifreeze.objects.all().order_by("name")
-
-    for antifreeze in antifreezes:
-
-        total = get_sum(
-            Wash.objects.filter(
-                antifreeze=antifreeze,
-            ),
+        consumed = sum_field(
+            Wash.objects.filter(station=station, antifreeze=material),
             "antifreeze_amount",
         )
 
-        if total != ZERO:
-            material_summary.append(
-                {
-                    "name": antifreeze.name,
-                    "type": "Антифриз",
-                    "balance": total,
-                }
-            )
+    balance = arrival + incoming - outgoing - writeoff - consumed
+    return {
+        "station": station,
+        "material_type": material_type,
+        "material_type_label": dict(MaterialOperation.MATERIAL_TYPES)[material_type],
+        "material": material,
+        "arrival": arrival,
+        "writeoff": writeoff,
+        "transfer_in": incoming,
+        "transfer_out": outgoing,
+        "transfer": incoming - outgoing,
+        "wash": consumed,
+        "balance": balance,
+        "active": any(
+            value != ZERO for value in (arrival, writeoff, incoming, outgoing, consumed)
+        ),
+    }
+
+
+def operation_scope(user):
+    operations = MaterialOperation.objects.select_related(
+        "from_station", "to_station", "cleaning_fluid", "antifreeze", "created_by"
+    )
+    if user.is_superuser:
+        return operations
+    stations = user_stations(user)
+    if not stations.exists():
+        return operations.none()
+    return operations.filter(
+        models.Q(from_station__in=stations) | models.Q(to_station__in=stations)
+    ).distinct()
+
+
+@login_required
+def balance_list(request):
+    if not has_assigned_stations(request.user):
+        return redirect("account_pending")
+
+    rows = []
+    stations, stations_all, selected_station = selected_station_scope(request)
+
+    for station in stations:
+        for fluid in CleaningFluid.objects.all():
+            row = build_row(station, MaterialOperation.CLEANING, fluid)
+            if row["active"]:
+                rows.append(row)
+
+        for antifreeze in Antifreeze.objects.all():
+            row = build_row(station, MaterialOperation.ANTIFREEZE, antifreeze)
+            if row["active"]:
+                rows.append(row)
+
+    grouped = []
+    for material_type, queryset in (
+        (MaterialOperation.CLEANING, CleaningFluid.objects.all()),
+        (MaterialOperation.ANTIFREEZE, Antifreeze.objects.all()),
+    ):
+        for material in queryset:
+            material_rows = [
+                row
+                for row in rows
+                if row["material_type"] == material_type and row["material"] == material
+            ]
+            if material_rows:
+                grouped.append(
+                    {
+                        "material_type_label": dict(MaterialOperation.MATERIAL_TYPES)[material_type],
+                        "material": material,
+                        "balance": sum((row["balance"] for row in material_rows), ZERO),
+                    }
+                )
+
+    operations = operation_scope(request.user)
+    if selected_station:
+        operations = operations.filter(
+            models.Q(from_station=selected_station) | models.Q(to_station=selected_station)
+        ).distinct()
 
     return render(
         request,
         "balance/balance_list.html",
         {
-            "balance_rows": balance_rows,
-            "total_balance": total_balance,
-            "material_summary": material_summary,
-        },
-    )
-
-    return render(
-        request,
-        "balance/balance_list.html",
-        {
-            "balance_rows": balance_rows,
-            "total_balance": total_balance,
-            "fluid_summary": fluid_summary,
-            "antifreeze_summary": antifreeze_summary,
+            "balance_rows": rows,
+            "material_summary": grouped,
+            "operations": operations,
+            "stations_all": stations_all,
+            "selected_station": selected_station,
         },
     )
 
 
+@login_required
 def operation_create(request):
-    """
-    Создаёт приход, списание или перераспределение жидкости.
-    """
+    if not has_assigned_stations(request.user):
+        return redirect("account_pending")
 
-    if request.method == "POST":
-        form = MaterialOperationForm(
-            request.POST,
-            user=request.user,
-        )
-
-        if form.is_valid():
-            form.save()
-            return redirect("balance_list")
-
-    else:
-        form = MaterialOperationForm(
-            user=request.user,
-        )
+    form = MaterialOperationForm(request.POST or None, user=request.user)
+    if request.method == "POST" and form.is_valid():
+        operation = form.save(commit=False)
+        operation.created_by = request.user
+        operation.save()
+        return redirect("balance_list")
 
     return render(
         request,
         "balance/operation_form.html",
-        {
-            "form": form,
-        },
+        {"form": form, "operation": None},
     )
+
+
+@login_required
+def operation_update(request, pk):
+    operation = get_object_or_404(MaterialOperation, pk=pk)
+
+    if not request.user.is_superuser and operation.created_by_id != request.user.id:
+        raise PermissionDenied("Вы можете редактировать только созданные вами операции.")
+
+    form = MaterialOperationForm(
+        request.POST or None,
+        instance=operation,
+        user=request.user,
+    )
+    if request.method == "POST" and form.is_valid():
+        updated_operation = form.save(commit=False)
+        updated_operation.created_by = operation.created_by
+        updated_operation.save()
+        return redirect("balance_list")
+
+    return render(
+        request,
+        "balance/operation_form.html",
+        {"form": form, "operation": operation},
+    )
+
+
+@login_required
+def operation_list(request):
+    # Старый адрес оставлен для совместимости, отдельного журнала больше нет.
+    return redirect("balance_list")

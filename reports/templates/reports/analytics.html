@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+
+{% block title %}Аналитика{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Аналитика</h1>
+        <div class="muted">Показатели за выбранный период</div>
+    </div>
+    <a class="btn" href="{% url 'export_excel' %}?{{ request.GET.urlencode }}">Excel по фильтру</a>
+</div>
+
+<form class="filter" method="get">
+    {% if user.is_superuser %}
+        <label>
+            КС
+            <select name="station">
+                <option value="">Все КС</option>
+                {% for station in stations_all %}
+                    <option value="{{ station.id }}" {% if selected_station.id == station.id %}selected{% endif %}>
+                        {{ station }}
+                    </option>
+                {% endfor %}
+            </select>
+        </label>
+    {% endif %}
+
+    <label>
+        С
+        <input type="date" name="date_from" value="{{ request.GET.date_from }}">
+    </label>
+
+    <label>
+        По
+        <input type="date" name="date_to" value="{{ request.GET.date_to }}">
+    </label>
+
+    <button class="btn btn-primary">Применить</button>
+</form>
+
+<div class="summary-grid">
+    <div class="metric">Промывок<b>{{ wash_count }}</b></div>
+    <div class="metric">Расход жидкости<b>{{ cleaning_total|floatformat:2 }} л</b></div>
+    <div class="metric">Расход антифриза<b>{{ antifreeze_total|floatformat:2 }} л</b></div>
+    <div class="metric">Операций<b>{{ operations_count }}</b></div>
+</div>
+
+<div class="cards">
+    {% for card in cards %}
+        <div class="metric">
+            <strong>{{ card.station }}</strong>
+            <b>{{ card.washes }} промывок</b>
+            <span class="muted">
+                Жидкость: {{ card.cleaning|floatformat:2 }} л<br>
+                Антифриз: {{ card.antifreeze|floatformat:2 }} л<br>
+                Последняя: {% if card.last %}{{ card.last.date|date:'d.m.Y' }}{% else %}—{% endif %}
+            </span>
+        </div>
+    {% endfor %}
+</div>
+
+<div class="chart-grid">
+    <section class="card chart chart-line">
+        <canvas id="usageChart"></canvas>
+    </section>
+
+    <section class="card chart chart-pie">
+        <canvas id="materialPie"></canvas>
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const dailyUsage = {{ daily_json|safe }};
+    const materialPie = {{ material_pie_json|safe }};
+
+    const usageCanvas = document.getElementById('usageChart');
+    new Chart(usageCanvas, {
+        type: 'line',
+        data: {
+            labels: dailyUsage.map(item => item.date),
+            datasets: [
+                {
+                    label: 'Промывочная жидкость, л',
+                    data: dailyUsage.map(item => item.cleaning),
+                    borderWidth: 3,
+                    tension: 0.25,
+                    fill: false,
+                    pointRadius: 4
+                },
+                {
+                    label: 'Антифриз, л',
+                    data: dailyUsage.map(item => item.antifreeze),
+                    borderWidth: 3,
+                    tension: 0.25,
+                    fill: false,
+                    pointRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Расход, л'
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Дата'
+                    }
+                }
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Расход материалов по датам — горизонтальный линейный график'
+                }
+            }
+        }
+    });
+
+    const pieCanvas = document.getElementById('materialPie');
+    new Chart(pieCanvas, {
+        type: 'doughnut',
+        data: {
+            labels: materialPie.map(item => item.name),
+            datasets: [{
+                data: materialPie.map(item => item.value),
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Соотношение расхода материалов'
+                },
+                legend: {
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label(context) {
+                            const value = Number(context.raw || 0);
+                            const total = context.dataset.data.reduce((sum, item) => sum + Number(item || 0), 0);
+                            const percent = total ? (value / total * 100).toFixed(1) : '0.0';
+                            return `${context.label}: ${value.toFixed(2)} л (${percent}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

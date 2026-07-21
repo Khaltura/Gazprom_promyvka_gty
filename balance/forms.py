@@ -1,5 +1,8 @@
 from django import forms
 
+from promyvki.models import CompressorStation
+from users.utils import user_stations
+
 from .models import MaterialOperation
 
 
@@ -8,78 +11,83 @@ class MaterialOperationForm(forms.ModelForm):
         model = MaterialOperation
         fields = (
             "operation_type",
+            "material_type",
             "from_station",
             "to_station",
             "cleaning_fluid",
+            "antifreeze",
             "amount",
             "date",
             "comment",
         )
-
         widgets = {
-            "date": forms.DateInput(
-                attrs={"type": "date"}
-            ),
-            "comment": forms.Textarea(
-                attrs={
-                    "rows": 3,
-                    "placeholder": "Комментарий или причина операции",
-                }
-            ),
+            "date": forms.DateInput(attrs={"type": "date"}),
+            "comment": forms.Textarea(attrs={"rows": 3}),
         }
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
-
         self.user = user
+        self.fixed_station = None
 
-        if (
-            user is not None
-            and user.is_authenticated
-            and not user.is_superuser
-            and hasattr(user, "userprofile")
-        ):
-            station = user.userprofile.station
+        if user and user.is_authenticated and not user.is_superuser:
+            assigned = user_stations(user)
+            self.fields["from_station"].queryset = assigned
+            # Для прихода пользователь может принять материал только на одну из своих КС.
+            # Для перераспределения станция назначения может быть любой.
+            self.fields["to_station"].queryset = CompressorStation.objects.all()
 
-            self.fields["from_station"].initial = station
-            self.fields["from_station"].disabled = True
+            if assigned.count() == 1:
+                self.fixed_station = assigned.first()
+                self.fields["from_station"].initial = self.fixed_station
+                self.fields["from_station"].widget = forms.HiddenInput()
 
-            self.fields["to_station"].queryset = (
-                self.fields["to_station"]
-                .queryset
-                .exclude(id=station.id)
-            )
+                if not self.is_bound and not self.instance.pk:
+                    self.fields["to_station"].initial = self.fixed_station
 
     def clean(self):
-        cleaned_data = super().clean()
+        data = super().clean()
+        user = self.user
+        operation_type = data.get("operation_type")
+        from_station = data.get("from_station")
+        to_station = data.get("to_station")
 
-        if (
-            self.user is not None
-            and self.user.is_authenticated
-            and not self.user.is_superuser
-            and hasattr(self.user, "userprofile")
-        ):
-            cleaned_data["from_station"] = self.user.userprofile.station
+        if user and user.is_authenticated and not user.is_superuser:
+            assigned_ids = set(user_stations(user).values_list("id", flat=True))
+            if not assigned_ids:
+                raise forms.ValidationError("Администратор ещё не назначил вам КС.")
 
-        operation_type = cleaned_data.get("operation_type")
-        from_station = cleaned_data.get("from_station")
-        to_station = cleaned_data.get("to_station")
+            if self.fixed_station:
+                if operation_type == MaterialOperation.ARRIVAL:
+                    to_station = self.fixed_station
+                    data["to_station"] = self.fixed_station
+                    self.instance.to_station = self.fixed_station
+                else:
+                    from_station = self.fixed_station
+                    data["from_station"] = self.fixed_station
+                    self.instance.from_station = self.fixed_station
 
-        if operation_type == "arrival":
-            cleaned_data["from_station"] = None
+            if operation_type == MaterialOperation.ARRIVAL:
+                if not to_station or to_station.id not in assigned_ids:
+                    self.add_error("to_station", "Приход можно оформить только на назначенную вам КС.")
+                data["from_station"] = None
+                self.instance.from_station = None
+            else:
+                if not from_station or from_station.id not in assigned_ids:
+                    self.add_error("from_station", "Выберите одну из назначенных вам КС.")
 
-        elif operation_type == "writeoff":
-            cleaned_data["to_station"] = None
+        if data.get("material_type") == MaterialOperation.CLEANING:
+            data["antifreeze"] = None
+            self.instance.antifreeze = None
+        else:
+            data["cleaning_fluid"] = None
+            self.instance.cleaning_fluid = None
 
-        elif operation_type == "transfer":
-            if (
-                from_station is not None
-                and to_station is not None
-                and from_station == to_station
-            ):
-                self.add_error(
-                    "to_station",
-                    "КС-источник и КС-получатель должны различаться.",
-                )
+        if operation_type == MaterialOperation.ARRIVAL:
+            data["from_station"] = None
+            self.instance.from_station = None
+        elif operation_type == MaterialOperation.WRITEOFF:
+            data["to_station"] = None
+            self.instance.to_station = None
 
-        return cleaned_data
+        return data

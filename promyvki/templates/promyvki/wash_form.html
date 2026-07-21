@@ -1,244 +1,42 @@
-{% load static %}
+{% extends 'base.html' %}
 
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+{% block title %}{% if wash %}Редактирование промывки{% else %}Новая промывка{% endif %}{% endblock %}
 
-    <title>Добавление промывки</title>
-
-    <link
-        rel="stylesheet"
-        href="{% static 'promyvki/styles.css' %}"
-    >
-</head>
-
-<body>
-
-<header class="page-header">
-    <div class="header-content">
-
-        <div class="brand-text">
-            <h1 class="page-title">
-                Добавление промывки
-            </h1>
-
-            <p class="page-subtitle">
-                Внесение результатов выполненной промывки оборудования
-                на компрессорной станции
-            </p>
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>{% if wash %}Редактирование промывки{% else %}Добавление промывки{% endif %}</h1>
+        <div class="muted">
+            {% if wash %}Измените данные и сохраните запись{% else %}Заполните параметры выполненной промывки{% endif %}
         </div>
-
-        <nav class="header-navigation">
-            <a
-                class="button button-secondary"
-                href="{% url 'wash_list' %}"
-            >
-                Журнал промывок
-            </a>
-
-            <a
-                class="button button-secondary"
-                href="{% url 'balance_list' %}"
-            >
-                Баланс
-            </a>
-        </nav>
-
     </div>
-</header>
+</div>
 
-<main class="form-page-container form-page-container-single">
-
-    <section class="form-card">
-
-        <div class="form-card-header">
-            <h2 class="form-title">
-                Новая промывка
-            </h2>
-
-            <p class="form-description">
-                Заполните параметры выполненной промывки.
-                Поля, отмеченные звёздочкой, обязательны.
-            </p>
-        </div>
-
-        <form method="post" class="wash-form" novalidate>
+<section class="card form-card">
+    <div class="card-body">
+        <form method="post">
             {% csrf_token %}
-
-            {% if form.non_field_errors %}
-                <div class="form-alert form-alert-error">
-                    {{ form.non_field_errors }}
-                </div>
-            {% endif %}
-
+            {{ form.non_field_errors }}
             <div class="form-grid">
-
-                <div class="form-field form-field-wide">
-                    <label for="{{ form.station.id_for_label }}">
-                        {{ form.station.label }}
-                        <span class="required-mark">*</span>
-                    </label>
-
-                    {{ form.station }}
-
-                    {% for error in form.station.errors %}
-                        <div class="field-error">
-                            {{ error }}
-                        </div>
-                    {% endfor %}
-                </div>
-
-                <div class="form-field">
-                    <label for="{{ form.date.id_for_label }}">
-                        {{ form.date.label }}
-                        <span class="required-mark">*</span>
-                    </label>
-
-                    {{ form.date }}
-
-                    {% for error in form.date.errors %}
-                        <div class="field-error">
-                            {{ error }}
-                        </div>
-                    {% endfor %}
-                </div>
-
-                <div class="form-field form-field-placeholder"></div>
-
-                <div class="form-field">
-                    <label for="{{ form.kts_before.id_for_label }}">
-                        {{ form.kts_before.label }}
-                        <span class="required-mark">*</span>
-                    </label>
-
-                    {{ form.kts_before }}
-
-                    {% for error in form.kts_before.errors %}
-                        <div class="field-error">
-                            {{ error }}
-                        </div>
-                    {% endfor %}
-                </div>
-
-                <div class="form-field">
-                    <label for="{{ form.kts_after.id_for_label }}">
-                        {{ form.kts_after.label }}
-                        <span class="required-mark">*</span>
-                    </label>
-
-                    {{ form.kts_after }}
-
-                    {% for error in form.kts_after.errors %}
-                        <div class="field-error">
-                            {{ error }}
-                        </div>
-                    {% endfor %}
-                </div>
-
-                <div class="form-section-title">
-                    Промывочная жидкость
-                </div>
-
-                <div class="form-field">
-                    <label for="{{ form.cleaning_fluid.id_for_label }}">
-                        {{ form.cleaning_fluid.label }}
-                        <span class="required-mark">*</span>
-                    </label>
-
-                    {{ form.cleaning_fluid }}
-
-                    {% for error in form.cleaning_fluid.errors %}
-                        <div class="field-error">
-                            {{ error }}
-                        </div>
-                    {% endfor %}
-                </div>
-
-                <div class="form-field">
-                    <label for="{{ form.cleaning_fluid_amount.id_for_label }}">
-                        {{ form.cleaning_fluid_amount.label }}
-                        <span class="required-mark">*</span>
-                    </label>
-
-                    <div class="input-with-unit">
-                        {{ form.cleaning_fluid_amount }}
-                        <span class="input-unit">л</span>
+                {% for field in form %}
+                    <div class="field">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {% if field.name == 'station' and form.fixed_station %}
+                            {{ field }}
+                            <div class="fixed-station">{{ form.fixed_station }}</div>
+                        {% else %}
+                            {{ field }}
+                        {% endif %}
+                        {{ field.errors }}
                     </div>
-
-                    {% for error in form.cleaning_fluid_amount.errors %}
-                        <div class="field-error">
-                            {{ error }}
-                        </div>
-                    {% endfor %}
-                </div>
-
-                <div class="form-section-title">
-                    Антифриз
-                </div>
-
-                <div class="form-field">
-                    <label for="{{ form.antifreeze.id_for_label }}">
-                        {{ form.antifreeze.label }}
-                    </label>
-
-                    {{ form.antifreeze }}
-
-                    <div class="field-help">
-                        Оставьте пустым, если антифриз не использовался.
-                    </div>
-
-                    {% for error in form.antifreeze.errors %}
-                        <div class="field-error">
-                            {{ error }}
-                        </div>
-                    {% endfor %}
-                </div>
-
-                <div class="form-field">
-                    <label for="{{ form.antifreeze_amount.id_for_label }}">
-                        {{ form.antifreeze_amount.label }}
-                    </label>
-
-                    <div class="input-with-unit">
-                        {{ form.antifreeze_amount }}
-                        <span class="input-unit">л</span>
-                    </div>
-
-                    {% for error in form.antifreeze_amount.errors %}
-                        <div class="field-error">
-                            {{ error }}
-                        </div>
-                    {% endfor %}
-                </div>
-
+                {% endfor %}
             </div>
-
-            <div class="form-actions">
-                <a
-                    class="button button-outline"
-                    href="{% url 'wash_list' %}"
-                >
-                    Отмена
-                </a>
-
-                <button
-                    class="button button-primary form-submit-button"
-                    type="submit"
-                >
-                    Сохранить промывку
-                </button>
+            <br>
+            <div class="actions">
+                <button class="btn btn-primary">{% if wash %}Сохранить изменения{% else %}Сохранить промывку{% endif %}</button>
+                <a class="btn" href="{% url 'wash_list' %}">Отмена</a>
             </div>
-
         </form>
-
-    </section>
-
-</main>
-
-</body>
-</html>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block title %}Аналитика промывок{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Аналитика промывок</h1>
+        <div class="muted">Расход материалов и выполненные промывки за выбранный период</div>
+    </div>
+    <div class="actions">
+        <a class="btn" href="{% url 'balance_analytics' %}">Аналитика баланса</a>
+        <a class="btn" href="{% url 'export_washes_excel' %}?{{ request.GET.urlencode }}">Excel по промывкам</a>
+    </div>
+</div>
+
+<form class="filter" method="get">
+    <label>
+        КС
+        <select name="station">
+            <option value="">Все доступные КС</option>
+            {% for station in stations_all %}
+                <option value="{{ station.id }}" {% if selected_station and selected_station.id == station.id %}selected{% endif %}>{{ station }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>С<input type="date" name="date_from" value="{{ request.GET.date_from }}"></label>
+    <label>По<input type="date" name="date_to" value="{{ request.GET.date_to }}"></label>
+    <button class="btn btn-primary">Применить</button>
+</form>
+
+<div class="summary-grid">
+    <div class="metric">Промывок<b>{{ wash_count }}</b></div>
+    <div class="metric">Расход жидкости<b>{{ cleaning_total|floatformat:2 }} л</b></div>
+    <div class="metric">Расход антифриза<b>{{ antifreeze_total|floatformat:2 }} л</b></div>
+</div>
+
+<div class="cards">
+    {% for card in cards %}
+        <div class="metric">
+            <strong>{{ card.station }}</strong>
+            <b>{{ card.washes }} промывок</b>
+            <span class="muted">
+                Жидкость: {{ card.cleaning|floatformat:2 }} л<br>
+                Антифриз: {{ card.antifreeze|floatformat:2 }} л<br>
+                Последняя: {% if card.last %}{{ card.last.date|date:'d.m.Y' }}{% else %}—{% endif %}
+            </span>
+        </div>
+    {% endfor %}
+</div>
+
+<section class="card chart chart-wide chart-line"><canvas id="usageChart"></canvas></section>
+<section class="card chart chart-wide chart-pie"><canvas id="materialsPie"></canvas></section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const dailyUsage = {{ daily_json|safe }};
+const materialsPie = {{ materials_pie_json|safe }};
+
+new Chart(document.getElementById('usageChart'), {
+    type: 'line',
+    data: {
+        labels: dailyUsage.map(item => item.date),
+        datasets: [
+            {label: 'Промывочная жидкость, л', data: dailyUsage.map(item => item.cleaning), borderWidth: 3, tension: 0.25, pointRadius: 4},
+            {label: 'Антифриз, л', data: dailyUsage.map(item => item.antifreeze), borderWidth: 3, tension: 0.25, pointRadius: 4}
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {mode: 'index', intersect: false},
+        scales: {
+            x: {title: {display: true, text: 'Дата'}},
+            y: {beginAtZero: true, title: {display: true, text: 'Литры'}}
+        },
+        plugins: {title: {display: true, text: 'Расход материалов по датам'}}
+    }
+});
+
+function drawPie(id, rows, title) {
+    new Chart(document.getElementById(id), {
+        type: 'doughnut',
+        data: {labels: rows.map(item => item.name), datasets: [{data: rows.map(item => item.value), borderWidth: 2}]},
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {display: true, text: title},
+                legend: {position: 'bottom'},
+                tooltip: {callbacks: {label(context) {
+                    const value = Number(context.raw || 0);
+                    const total = context.dataset.data.reduce((sum, item) => sum + Number(item || 0), 0);
+                    const percent = total ? (value / total * 100).toFixed(1) : '0.0';
+                    return `${context.label}: ${value.toFixed(2)} л (${percent}%)`;
+                }}}
+            }
+        }
+    });
+}
+
+drawPie('materialsPie', materialsPie, 'Расход всех материалов по видам');
+</script>
+{% endblock %}

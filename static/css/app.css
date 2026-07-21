@@ -1,0 +1,93 @@
+:root{--bg:#f4f6f8;--card:#fff;--primary:#1565c0;--primary2:#0d47a1;--text:#1f2933;--muted:#657180;--border:#dce1e6;--green:#16803c;--red:#b42318}*{box-sizing:border-box}body{margin:0;font:15px Arial,sans-serif;background:var(--bg);color:var(--text)}.topbar{background:linear-gradient(135deg,var(--primary2),#1976d2);color:white;padding:18px 32px;display:flex;align-items:center;gap:28px;flex-wrap:wrap}.brand{font-size:22px;font-weight:700;color:white;text-decoration:none}.topbar nav{display:flex;gap:8px;flex-wrap:wrap}.topbar nav a,.user a{color:white;text-decoration:none;padding:8px 10px;border-radius:7px}.topbar nav a:hover,.user a:hover{background:#ffffff20}.user{margin-left:auto}.container{max-width:1500px;margin:auto;padding:30px 36px}.page-head{display:flex;justify-content:space-between;gap:20px;align-items:center;margin-bottom:22px}.page-head h1{margin:0 0 6px}.muted{color:var(--muted)}.btn{display:inline-flex;padding:10px 16px;border-radius:7px;text-decoration:none;border:1px solid var(--border);font-weight:700;cursor:pointer;background:white;color:var(--text)}.btn-primary{background:var(--primary);color:white;border-color:var(--primary)}.actions{display:flex;gap:10px;flex-wrap:wrap}.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 2px 8px #1f293314;margin-bottom:22px;overflow:hidden}.card-body{padding:22px}.summary-grid,.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin-bottom:22px}.metric{background:white;border:1px solid var(--border);border-radius:12px;padding:20px}.metric b{font-size:26px;display:block;margin-top:8px}.table-wrap{overflow:auto}table{border-collapse:collapse;width:100%;min-width:950px}th,td{padding:13px 14px;border-bottom:1px solid var(--border);text-align:center}th{background:#f0f3f6;font-size:12px;text-transform:uppercase}tr:hover td{background:#fafbfd}.positive{color:var(--green);font-weight:700}.negative{color:var(--red);font-weight:700}.form-card{max-width:900px;margin:auto}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.field{display:flex;flex-direction:column;gap:7px}.field.full{grid-column:1/-1}.field input,.field select,.field textarea{padding:11px;border:1px solid #cbd3dc;border-radius:7px;font:inherit}.errorlist{color:var(--red);margin:4px 0;padding-left:20px}.auth{max-width:480px;margin:70px auto}.auth h1{margin-top:0}.chart-grid{display:grid;grid-template-columns:2fr 1fr;gap:20px}.chart{min-height:340px;padding:20px}.filter{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:20px}.filter label{display:flex;flex-direction:column;gap:6px}.filter input,.filter select{padding:9px;border:1px solid var(--border);border-radius:7px}@media(max-width:800px){.container{padding:20px 14px}.user{margin-left:0}.form-grid,.chart-grid{grid-template-columns:1fr}.page-head{align-items:flex-start;flex-direction:column}}
+
+.clickable-row {
+    cursor: pointer;
+}
+
+.clickable-row:hover {
+    background: #eef5fd;
+}
+
+.table-link {
+    color: #1565c0;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.table-link:hover {
+    text-decoration: underline;
+}
+
+.section-heading{display:flex;align-items:center;justify-content:space-between;gap:18px;border-bottom:1px solid var(--border)}
+.section-heading h2{margin:0 0 6px;font-size:20px}
+
+.chart-wide{min-height:420px}.chart-grid-equal{display:grid;grid-template-columns:1fr 1fr;gap:20px}.chart canvas{width:100%!important;height:100%!important}@media(max-width:800px){.chart-grid-equal{grid-template-columns:1fr}}
+
+/* Компактные графики и фиксированная КС в формах */
+.chart{min-height:260px;padding:16px}
+.chart-wide{min-height:300px;max-width:1100px;margin-left:auto;margin-right:auto}
+.chart-grid{max-width:1180px;margin-left:auto;margin-right:auto}
+.fixed-station{min-height:43px;display:flex;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:7px;background:#f0f3f6;color:var(--text);font-weight:700}
+.station-select-control select{width:100%}
+@media(max-width:800px){.chart,.chart-wide{min-height:250px}}
+
+/* Сильно уменьшенные графики аналитики */
+.chart,
+.chart-wide {
+    min-height: 0;
+    height: 230px;
+    padding: 12px 14px;
+}
+
+.chart-wide {
+    width: 100%;
+    max-width: 880px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.chart-grid {
+    grid-template-columns: minmax(0, 1.45fr) minmax(260px, 0.55fr);
+    max-width: 980px;
+    gap: 16px;
+}
+
+.chart-line,
+.chart-bar {
+    height: 235px;
+}
+
+.chart-pie {
+    width: 100%;
+    max-width: 430px;
+    height: 235px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.chart canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 211px !important;
+}
+
+@media (max-width: 800px) {
+    .chart-grid {
+        grid-template-columns: 1fr;
+        max-width: 620px;
+    }
+
+    .chart,
+    .chart-wide,
+    .chart-line,
+    .chart-bar,
+    .chart-pie {
+        height: 215px;
+        min-height: 0;
+    }
+
+    .chart canvas {
+        max-height: 191px !important;
+    }
+}

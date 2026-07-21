@@ -1,5 +1,5 @@
 from decimal import Decimal
-
+from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Sum
@@ -7,223 +7,110 @@ from django.utils import timezone
 
 
 class MaterialOperation(models.Model):
+    ARRIVAL = 'arrival'
+    WRITEOFF = 'writeoff'
+    TRANSFER = 'transfer'
+    OPERATION_TYPES = [(ARRIVAL, 'Приход'), (WRITEOFF, 'Списание'), (TRANSFER, 'Перераспределение')]
 
-    OPERATION_TYPES = [
-        ("arrival", "Приход"),
-        ("writeoff", "Списание"),
-        ("transfer", "Перераспределение"),
-    ]
+    CLEANING = 'cleaning_fluid'
+    ANTIFREEZE = 'antifreeze'
+    MATERIAL_TYPES = [(CLEANING, 'Промывочная жидкость'), (ANTIFREEZE, 'Антифриз')]
 
-    operation_type = models.CharField(
-        "Тип операции",
-        max_length=20,
-        choices=OPERATION_TYPES,
-    )
+    operation_type = models.CharField('Тип операции', max_length=20, choices=OPERATION_TYPES)
+    material_type = models.CharField('Тип материала', max_length=30, choices=MATERIAL_TYPES, default=CLEANING)
+    from_station = models.ForeignKey('promyvki.CompressorStation', on_delete=models.CASCADE, null=True, blank=True, related_name='operations_from', verbose_name='Откуда')
+    to_station = models.ForeignKey('promyvki.CompressorStation', on_delete=models.CASCADE, null=True, blank=True, related_name='operations_to', verbose_name='Куда')
+    cleaning_fluid = models.ForeignKey('promyvki.CleaningFluid', on_delete=models.PROTECT, null=True, blank=True, verbose_name='Промывочная жидкость')
+    antifreeze = models.ForeignKey('promyvki.Antifreeze', on_delete=models.PROTECT, null=True, blank=True, verbose_name='Антифриз')
+    amount = models.DecimalField('Количество (л)', max_digits=12, decimal_places=2)
+    date = models.DateField('Дата')
+    comment = models.CharField('Комментарий', max_length=255, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='material_operations', verbose_name='Создал')
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
 
-    from_station = models.ForeignKey(
-        "promyvki.CompressorStation",
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name="transfer_from",
-        verbose_name="Откуда",
-    )
+    class Meta:
+        verbose_name = 'Операция с материалом'
+        verbose_name_plural = 'Операции с материалами'
+        ordering = ['-date', '-id']
 
-    to_station = models.ForeignKey(
-        "promyvki.CompressorStation",
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name="transfer_to",
-        verbose_name="Куда",
-    )
+    @property
+    def material(self):
+        return self.cleaning_fluid if self.material_type == self.CLEANING else self.antifreeze
 
-    cleaning_fluid = models.ForeignKey(
-        "promyvki.CleaningFluid",
-        on_delete=models.CASCADE,
-        verbose_name="Промывочная жидкость",
-    )
-
-    amount = models.DecimalField(
-        "Количество (л)",
-        max_digits=10,
-        decimal_places=2,
-    )
-
-    date = models.DateField("Дата")
-
-    comment = models.CharField(
-        "Комментарий",
-        max_length=255,
-        blank=True,
-    )
+    @property
+    def material_name(self):
+        return str(self.material) if self.material else '—'
 
     def get_available_balance(self):
-        """
-        Возвращает доступный остаток выбранной промывочной жидкости
-        на станции-источнике.
-
-        Используется для проверки списания и перераспределения.
-        """
-        if self.from_station_id is None or self.cleaning_fluid_id is None:
-            return Decimal("0.00")
-
-        operations = MaterialOperation.objects.filter(
-            cleaning_fluid_id=self.cleaning_fluid_id,
-        )
-
-        arrival = (
-            operations.filter(
-                operation_type="arrival",
-                to_station_id=self.from_station_id,
-            ).aggregate(total=Sum("amount"))["total"]
-            or Decimal("0.00")
-        )
-
-        transfer_in = (
-            operations.filter(
-                operation_type="transfer",
-                to_station_id=self.from_station_id,
-            ).aggregate(total=Sum("amount"))["total"]
-            or Decimal("0.00")
-        )
-
-        transfer_out = (
-            operations.filter(
-                operation_type="transfer",
-                from_station_id=self.from_station_id,
-            ).aggregate(total=Sum("amount"))["total"]
-            or Decimal("0.00")
-        )
-
-        writeoff = (
-            operations.filter(
-                operation_type="writeoff",
-                from_station_id=self.from_station_id,
-            ).aggregate(total=Sum("amount"))["total"]
-            or Decimal("0.00")
-        )
-
-        # Импорт внутри метода позволяет избежать лишних циклических импортов.
-        from promyvki.models import Wash
-
-        wash = (
-            Wash.objects.filter(
-                station_id=self.from_station_id,
-                cleaning_fluid_id=self.cleaning_fluid_id,
-            ).aggregate(total=Sum("cleaning_fluid_amount"))["total"]
-            or Decimal("0.00")
-        )
-
-        available_balance = (
-            arrival
-            + transfer_in
-            - transfer_out
-            - writeoff
-            - wash
-        )
-
-        return available_balance
+        station_id = self.from_station_id
+        if not station_id or not self.material:
+            return Decimal('0.00')
+        return calculate_material_balance(station_id, self.material_type, self.cleaning_fluid_id or self.antifreeze_id, exclude_operation_id=self.pk)
 
     def clean(self):
         errors = {}
-
         if self.amount is not None and self.amount <= 0:
-            errors["amount"] = "Количество должно быть больше нуля."
-
+            errors['amount'] = 'Количество должно быть больше нуля.'
         if self.date and self.date > timezone.localdate():
-            errors["date"] = "Дата операции не может быть в будущем."
+            errors['date'] = 'Дата операции не может быть в будущем.'
 
-        if self.operation_type == "arrival":
-            if self.from_station is not None:
-                errors["from_station"] = (
-                    "Для прихода станция-источник не указывается."
-                )
+        if self.material_type == self.CLEANING:
+            if not self.cleaning_fluid_id:
+                errors['cleaning_fluid'] = 'Выберите промывочную жидкость.'
+            if self.antifreeze_id:
+                errors['antifreeze'] = 'Для этого типа материала антифриз не выбирается.'
+        elif self.material_type == self.ANTIFREEZE:
+            if not self.antifreeze_id:
+                errors['antifreeze'] = 'Выберите антифриз.'
+            if self.cleaning_fluid_id:
+                errors['cleaning_fluid'] = 'Для этого типа материала промывочная жидкость не выбирается.'
 
-            if self.to_station is None:
-                errors["to_station"] = (
-                    "Для прихода необходимо указать КС-получателя."
-                )
+        if self.operation_type == self.ARRIVAL:
+            if self.from_station_id:
+                errors['from_station'] = 'Для прихода КС-источник не указывается.'
+            if not self.to_station_id:
+                errors['to_station'] = 'Укажите КС-получателя.'
+        elif self.operation_type == self.WRITEOFF:
+            if not self.from_station_id:
+                errors['from_station'] = 'Укажите КС.'
+            if self.to_station_id:
+                errors['to_station'] = 'Для списания КС-получатель не указывается.'
+        elif self.operation_type == self.TRANSFER:
+            if not self.from_station_id:
+                errors['from_station'] = 'Укажите КС-источник.'
+            if not self.to_station_id:
+                errors['to_station'] = 'Укажите КС-получателя.'
+            if self.from_station_id and self.from_station_id == self.to_station_id:
+                errors['to_station'] = 'КС-источник и КС-получатель должны различаться.'
 
-        elif self.operation_type == "writeoff":
-            if self.from_station is None:
-                errors["from_station"] = (
-                    "Для списания необходимо указать КС."
-                )
-
-            if self.to_station is not None:
-                errors["to_station"] = (
-                    "Для списания станция-получатель не указывается."
-                )
-
-        elif self.operation_type == "transfer":
-            if self.from_station is None:
-                errors["from_station"] = (
-                    "Для перераспределения укажите КС-источник."
-                )
-
-            if self.to_station is None:
-                errors["to_station"] = (
-                    "Для перераспределения укажите КС-получателя."
-                )
-
-            if (
-                self.from_station is not None
-                and self.to_station is not None
-                and self.from_station_id == self.to_station_id
-            ):
-                errors["to_station"] = (
-                    "Нельзя перераспределить жидкость на ту же КС."
-                )
-
-        if self.operation_type in ("writeoff", "transfer"):
-            can_check_balance = (
-                self.from_station_id is not None
-                and self.cleaning_fluid_id is not None
-                and self.amount is not None
-                and self.amount > 0
-            )
-
-            if can_check_balance:
-                available_balance = self.get_available_balance()
-
-                # При редактировании уже существующей операции её старое
-                # количество уже вычтено из текущего баланса.
-                # Поэтому возвращаем его перед сравнением.
-                if self.pk:
-                    old_operation = (
-                        MaterialOperation.objects
-                        .filter(pk=self.pk)
-                        .first()
-                    )
-
-                    if (
-                        old_operation is not None
-                        and old_operation.operation_type
-                        in ("writeoff", "transfer")
-                        and old_operation.from_station_id
-                        == self.from_station_id
-                        and old_operation.cleaning_fluid_id
-                        == self.cleaning_fluid_id
-                    ):
-                        available_balance += old_operation.amount
-
-                if self.amount > available_balance:
-                    errors["amount"] = (
-                        "Недостаточно жидкости на выбранной КС. "
-                        f"Доступно: {available_balance} л."
-                    )
-
+        if self.operation_type in (self.WRITEOFF, self.TRANSFER) and self.from_station_id and self.material and self.amount and self.amount > 0:
+            available = self.get_available_balance()
+            if self.amount > available:
+                errors['amount'] = f'Недостаточно материала. Доступно: {available} л.'
         if errors:
             raise ValidationError(errors)
 
-    class Meta:
-        verbose_name = "Операция"
-        verbose_name_plural = "Операции"
-        ordering = ["-date", "-id"]
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
     def __str__(self):
-        return (
-            f"{self.get_operation_type_display()} — "
-            f"{self.cleaning_fluid} — {self.amount} л"
-        )
+        return f'{self.get_operation_type_display()} — {self.material_name} — {self.amount} л'
+
+
+def calculate_material_balance(station_id, material_type, material_id, exclude_operation_id=None):
+    filters = {'material_type': material_type}
+    filters['cleaning_fluid_id' if material_type == MaterialOperation.CLEANING else 'antifreeze_id'] = material_id
+    operations = MaterialOperation.objects.filter(**filters)
+    if exclude_operation_id:
+        operations = operations.exclude(pk=exclude_operation_id)
+    arrival = operations.filter(operation_type=MaterialOperation.ARRIVAL, to_station_id=station_id).aggregate(v=Sum('amount'))['v'] or Decimal('0')
+    incoming = operations.filter(operation_type=MaterialOperation.TRANSFER, to_station_id=station_id).aggregate(v=Sum('amount'))['v'] or Decimal('0')
+    outgoing = operations.filter(operation_type=MaterialOperation.TRANSFER, from_station_id=station_id).aggregate(v=Sum('amount'))['v'] or Decimal('0')
+    writeoff = operations.filter(operation_type=MaterialOperation.WRITEOFF, from_station_id=station_id).aggregate(v=Sum('amount'))['v'] or Decimal('0')
+    from promyvki.models import Wash
+    if material_type == MaterialOperation.CLEANING:
+        consumed = Wash.objects.filter(station_id=station_id, cleaning_fluid_id=material_id).aggregate(v=Sum('cleaning_fluid_amount'))['v'] or Decimal('0')
+    else:
+        consumed = Wash.objects.filter(station_id=station_id, antifreeze_id=material_id).aggregate(v=Sum('antifreeze_amount'))['v'] or Decimal('0')
+    return arrival + incoming - outgoing - writeoff - consumed

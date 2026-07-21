@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block title %}Операции{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Журнал операций</h1>
+        <div class="muted">Нажмите на доступную операцию, чтобы изменить её</div>
+    </div>
+    <a class="btn btn-primary" href="{% url 'operation_create' %}">Добавить</a>
+</div>
+
+<section class="card">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Дата</th>
+                    <th>Тип</th>
+                    <th>Материал</th>
+                    <th>Откуда</th>
+                    <th>Куда</th>
+                    <th>Количество</th>
+                    <th>Комментарий</th>
+                    <th>Создал</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for operation in operations %}
+                    {% if user.is_superuser or operation.created_by_id == user.id %}
+                        <tr class="clickable-row" data-url="{% url 'operation_update' operation.pk %}">
+                    {% else %}
+                        <tr>
+                    {% endif %}
+                        <td>{{ operation.date|date:'d.m.Y' }}</td>
+                        <td>{{ operation.get_operation_type_display }}</td>
+                        <td>{{ operation.get_material_type_display }}: {{ operation.material_name }}</td>
+                        <td>{{ operation.from_station|default:'—' }}</td>
+                        <td>{{ operation.to_station|default:'—' }}</td>
+                        <td>{{ operation.amount|floatformat:2 }} л</td>
+                        <td>{{ operation.comment|default:'—' }}</td>
+                        <td>{{ operation.created_by|default:'—' }}</td>
+                        <td>
+                            {% if user.is_superuser or operation.created_by_id == user.id %}
+                                <a class="table-link" href="{% url 'operation_update' operation.pk %}">Изменить</a>
+                            {% else %}
+                                <span class="muted">Только просмотр</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="9">Операций нет</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.querySelectorAll('.clickable-row').forEach(row => {
+        row.addEventListener('click', event => {
+            if (event.target.closest('a, button, input, select, textarea')) {
+                return;
+            }
+            window.location.href = row.dataset.url;
+        });
+    });
+</script>
+{% endblock %}
